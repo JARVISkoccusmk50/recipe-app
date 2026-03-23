@@ -55,9 +55,8 @@ export default function Home() {
 
       const data = await res.json();
 
-      // 取り込んだデータをsessionStorageに一時保存して確認画面へ遷移
-      sessionStorage.setItem('scrapeResult', JSON.stringify({ url, ...data }));
-      router.push('/import');
+      // URLパラメータとして確認画面へ遷移（sessionStorageはlocaltunnel非対応のため）
+      router.push(`/import?url=${encodeURIComponent(url)}`);
     } catch (e) {
       setError('取り込みに失敗しました。URLを確認してください。');
     } finally {

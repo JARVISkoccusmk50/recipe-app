@@ -2,8 +2,8 @@
 // 取り込み確認・編集画面
 // スクレイピングした内容を確認して編集し、保存する画面です
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 // 材料の型
@@ -17,8 +17,9 @@ interface Step {
   description: string;
 }
 
-export default function ImportPage() {
+function ImportPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // 元レシピの情報（スクレイピング結果）
   const [sourceData, setSourceData] = useState<{
@@ -41,19 +42,31 @@ export default function ImportPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // sessionStorageからスクレイピング結果を読み込む
+  // URLパラメータからurlを取得してスクレイピングAPIを呼び出す
   useEffect(() => {
-    const stored = sessionStorage.getItem('scrapeResult');
-    if (!stored) {
+    const targetUrl = searchParams.get('url');
+    if (!targetUrl) {
       router.push('/');
       return;
     }
-    const data = JSON.parse(stored);
-    setSourceData(data);
-    // タイトルを初期値として設定
-    setTitle(data.title || '');
-    setImageUrl(data.imageUrl || '');
-  }, [router]);
+    fetch('/api/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: targetUrl }),
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('scrape failed');
+        return res.json();
+      })
+      .then(data => {
+        setSourceData({ url: targetUrl, ...data });
+        setTitle(data.title || '');
+        setImageUrl(data.imageUrl || '');
+      })
+      .catch(() => {
+        router.push('/');
+      });
+  }, [router, searchParams]);
 
   // 材料の行を追加する
   const addIngredient = () => {
@@ -132,7 +145,6 @@ export default function ImportPage() {
 
       const data = await res.json();
       // 保存成功後、詳細ページへ遷移
-      sessionStorage.removeItem('scrapeResult');
       router.push(`/recipes/${data.recipeId}`);
     } catch (e) {
       setError('保存に失敗しました');
@@ -324,5 +336,13 @@ export default function ImportPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ImportPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">読み込み中...</div>}>
+      <ImportPageInner />
+    </Suspense>
   );
 }
