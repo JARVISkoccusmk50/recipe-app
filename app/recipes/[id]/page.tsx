@@ -21,7 +21,7 @@ interface RecipeDetail {
     change_note: string;
     created_at: string;
   };
-  ingredients: { id: number; name: string; amount: string }[];
+  ingredients: { id: number; name: string; amount: string; ingredient_group?: string | null }[];
   steps: { id: number; step_number: number; description: string }[];
   tags: string[];
 }
@@ -76,6 +76,18 @@ export default function RecipeDetailPage() {
             >
               ✏️ 編集
             </Link>
+            <button
+              onClick={async () => {
+                if (!confirm('このレシピを削除しますか？')) return;
+                const res = await fetch(`/api/recipes/${recipeId}`, { method: 'DELETE' });
+                if (res.ok) {
+                  router.push('/recipes');
+                }
+              }}
+              className="bg-red-500 text-white hover:bg-red-600 text-sm px-3 py-1 rounded font-medium"
+            >
+              🗑️ 削除
+            </button>
           </div>
         </div>
       </header>
@@ -122,17 +134,38 @@ export default function RecipeDetailPage() {
         {recipe.ingredients.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-5 border border-amber-100">
             <h2 className="text-lg font-semibold text-gray-800 mb-3">材料</h2>
-            <ul className="space-y-2">
-              {recipe.ingredients.map((ing, i) => (
-                <li key={ing.id} className="flex justify-between py-1 border-b border-gray-100 last:border-0">
-                  <span className="text-gray-700">
-                    <span className="text-gray-400 text-sm mr-2">{i + 1}.</span>
-                    {ing.name}
-                  </span>
-                  <span className="text-gray-500">{ing.amount}</span>
-                </li>
-              ))}
-            </ul>
+            {(() => {
+              // グループ別にまとめる
+              const groups: { group: string | null; items: typeof recipe.ingredients }[] = [];
+              recipe.ingredients.forEach(ing => {
+                const g = ing.ingredient_group || null;
+                const last = groups[groups.length - 1];
+                if (last && last.group === g) {
+                  last.items.push(ing);
+                } else {
+                  groups.push({ group: g, items: [ing] });
+                }
+              });
+              return (
+                <div className="space-y-3">
+                  {groups.map((group, gi) => (
+                    <div key={gi}>
+                      {group.group && (
+                        <div className="text-sm font-semibold text-amber-700 mb-1">〈{group.group}〉</div>
+                      )}
+                      <ul className="space-y-1">
+                        {group.items.map(ing => (
+                          <li key={ing.id} className="flex justify-between py-1 border-b border-gray-100 last:border-0">
+                            <span className={`text-gray-700 ${group.group ? 'pl-3' : ''}`}>{ing.name}</span>
+                            <span className="text-gray-500">{ing.amount}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 

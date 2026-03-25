@@ -9,6 +9,7 @@ import Link from 'next/link';
 interface Ingredient {
   name: string;
   amount: string;
+  group?: string; // グループラベル（例：「A」「B」「合わせ調味料」）
 }
 
 interface Step {
@@ -45,8 +46,8 @@ export default function EditRecipePage() {
         setChangeNote('');
         setIngredients(
           data.ingredients?.length > 0
-            ? data.ingredients.map((i: any) => ({ name: i.name, amount: i.amount }))
-            : [{ name: '', amount: '' }]
+            ? data.ingredients.map((i: any) => ({ name: i.name, amount: i.amount, group: i.ingredient_group || '' }))
+            : [{ name: '', amount: '', group: '' }]
         );
         setSteps(
           data.steps?.length > 0
@@ -63,8 +64,8 @@ export default function EditRecipePage() {
   }, [recipeId]);
 
   // 材料の追加・変更・削除
-  const addIngredient = () => setIngredients([...ingredients, { name: '', amount: '' }]);
-  const updateIngredient = (i: number, field: 'name' | 'amount', val: string) => {
+  const addIngredient = () => setIngredients([...ingredients, { name: '', amount: '', group: '' }]);
+  const updateIngredient = (i: number, field: 'name' | 'amount' | 'group', val: string) => {
     const arr = [...ingredients];
     arr[i][field] = val;
     setIngredients(arr);
@@ -150,7 +151,7 @@ export default function EditRecipePage() {
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
             />
           </div>
 
@@ -161,7 +162,7 @@ export default function EditRecipePage() {
               type="url"
               value={imageUrl}
               onChange={e => setImageUrl(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
             />
             {imageUrl && (
               <img src={imageUrl} alt="プレビュー" className="mt-2 h-32 object-cover rounded-lg" />
@@ -176,17 +177,25 @@ export default function EditRecipePage() {
                 <div key={i} className="flex gap-2">
                   <input
                     type="text"
+                    value={ing.group || ''}
+                    onChange={e => updateIngredient(i, 'group', e.target.value)}
+                    placeholder="A"
+                    className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
+                    title="グループ（任意）"
+                  />
+                  <input
+                    type="text"
                     value={ing.name}
                     onChange={e => updateIngredient(i, 'name', e.target.value)}
                     placeholder="材料名"
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
                   />
                   <input
                     type="text"
                     value={ing.amount}
                     onChange={e => updateIngredient(i, 'amount', e.target.value)}
                     placeholder="分量"
-                    className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
                   />
                   <button onClick={() => removeIngredient(i)} className="text-gray-400 hover:text-red-500 px-2">✕</button>
                 </div>
@@ -208,7 +217,7 @@ export default function EditRecipePage() {
                     value={step.description}
                     onChange={e => updateStep(i, e.target.value)}
                     rows={2}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none bg-white text-gray-900"
                   />
                   <button onClick={() => removeStep(i)} className="text-gray-400 hover:text-red-500 px-2 pt-2">✕</button>
                 </div>
@@ -226,7 +235,7 @@ export default function EditRecipePage() {
               value={memo}
               onChange={e => setMemo(e.target.value)}
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 resize-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 resize-none bg-white text-gray-900"
             />
           </div>
 
@@ -237,7 +246,7 @@ export default function EditRecipePage() {
               type="text"
               value={tagsInput}
               onChange={e => setTagsInput(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
               placeholder="カンマ区切り（例：和食, 簡単）"
             />
           </div>
@@ -249,7 +258,7 @@ export default function EditRecipePage() {
               type="text"
               value={changeNote}
               onChange={e => setChangeNote(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
               placeholder="今回何を変更したか（例：砂糖を半量に）"
             />
           </div>

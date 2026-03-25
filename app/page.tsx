@@ -93,16 +93,22 @@ export default function Home() {
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleImport()}
               placeholder="https://example.com/recipe/..."
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-amber-500"
+              className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
             />
             <button
               onClick={handleImport}
               disabled={loading}
-              className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[100px]"
             >
-              {loading ? '取り込み中...' : '取り込む'}
+              {loading ? '⏳ 取り込み中...' : '取り込む'}
             </button>
           </div>
+
+          {loading && (
+            <p className="text-amber-600 text-sm mt-3 text-center animate-pulse">
+              レシピを取り込んでいます。しばらくお待ちください...
+            </p>
+          )}
 
           {error && (
             <p className="text-red-500 text-sm mt-2">{error}</p>

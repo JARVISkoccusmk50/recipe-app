@@ -56,6 +56,56 @@ export async function GET(
   });
 }
 
+// レシピを削除する（DELETEリクエスト）
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const db = getDb();
+  const { id } = await params;
+  const recipeId = parseInt(id);
+
+  const recipe = db.prepare(`SELECT * FROM recipes WHERE id = ?`).get(recipeId) as any;
+  if (!recipe) {
+    return NextResponse.json({ error: 'レシピが見つかりません' }, { status: 404 });
+  }
+
+  const deleteRecipe = db.transaction(() => {
+    // current_version_id の外部キー制約を先に解除
+    db.prepare(`UPDATE recipes SET current_version_id = NULL WHERE id = ?`).run(recipeId);
+
+    // バージョンIDを全取得
+    const versions = db.prepare(`SELECT id FROM recipeVersions WHERE recipe_id = ?`).all(recipeId) as { id: number }[];
+    const versionIds = versions.map(v => v.id);
+
+    // versionIngredients, versionSteps を削除
+    for (const versionId of versionIds) {
+      db.prepare(`DELETE FROM versionIngredients WHERE version_id = ?`).run(versionId);
+      db.prepare(`DELETE FROM versionSteps WHERE version_id = ?`).run(versionId);
+    }
+
+    // recipeVersions を削除
+    db.prepare(`DELETE FROM recipeVersions WHERE recipe_id = ?`).run(recipeId);
+
+    // recipeTags を削除
+    db.prepare(`DELETE FROM recipeTags WHERE recipe_id = ?`).run(recipeId);
+
+    // recipes を削除
+    db.prepare(`DELETE FROM recipes WHERE id = ?`).run(recipeId);
+
+    // sources を削除（他のレシピで使われていなければ）
+    if (recipe.source_id) {
+      const otherUse = db.prepare(`SELECT COUNT(*) as cnt FROM recipes WHERE source_id = ?`).get(recipe.source_id) as { cnt: number };
+      if (otherUse.cnt === 0) {
+        db.prepare(`DELETE FROM sources WHERE id = ?`).run(recipe.source_id);
+      }
+    }
+  });
+
+  deleteRecipe();
+  return NextResponse.json({ success: true });
+}
+
 // レシピを新しい版として更新する（PUTリクエスト）
 export async function PUT(
   request: NextRequest,
@@ -100,10 +150,10 @@ export async function PUT(
     const versionId = versionResult.lastInsertRowid;
 
     // 材料を保存
-    (ingredients || []).forEach((ing: { name: string; amount: string }, i: number) => {
+    (ingredients || []).forEach((ing: { name: string; amount: string; group?: string }, i: number) => {
       db.prepare(`
-        INSERT INTO versionIngredients (version_id, sort_order, name, amount) VALUES (?, ?, ?, ?)
-      `).run(versionId, i, ing.name, ing.amount || '');
+        INSERT INTO versionIngredients (version_id, ingredient_group, sort_order, name, amount) VALUES (?, ?, ?, ?, ?)
+      `).run(versionId, ing.group || null, i, ing.name, ing.amount || '');
     });
 
     // 手順を保存

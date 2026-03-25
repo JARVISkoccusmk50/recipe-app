@@ -58,7 +58,7 @@ export default function RecipesPage() {
               value={titleQuery}
               onChange={e => setTitleQuery(e.target.value)}
               placeholder="タイトルで検索..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
             />
           </div>
           <div>
@@ -67,7 +67,7 @@ export default function RecipesPage() {
               value={tagQuery}
               onChange={e => setTagQuery(e.target.value)}
               placeholder="タグで検索（例：和食）"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
             />
           </div>
         </div>

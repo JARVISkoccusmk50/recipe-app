@@ -65,11 +65,19 @@ function initDb(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS versionIngredients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       version_id INTEGER NOT NULL REFERENCES recipeVersions(id),
+      ingredient_group TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
       name TEXT NOT NULL,
       amount TEXT
     )
   `);
+
+  // 既存DBにingredient_groupカラムがなければ追加
+  try {
+    db.exec(`ALTER TABLE versionIngredients ADD COLUMN ingredient_group TEXT`);
+  } catch {
+    // カラムが既に存在する場合は無視
+  }
 
   // 版ごとの手順リスト
   db.exec(`

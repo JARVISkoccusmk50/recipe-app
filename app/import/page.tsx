@@ -10,6 +10,7 @@ import Link from 'next/link';
 interface Ingredient {
   name: string;
   amount: string;
+  group?: string; // グループラベル（例：「A」「B」「合わせ調味料」）
 }
 
 // 手順の型
@@ -35,14 +36,16 @@ function ImportPageInner() {
   const [imageUrl, setImageUrl] = useState('');
   const [memo, setMemo] = useState('');
   const [changeNote, setChangeNote] = useState('');
-  const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '' }]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', amount: '', group: '' }]);
   const [steps, setSteps] = useState<Step[]>([{ description: '' }]);
-  const [tagsInput, setTagsInput] = useState('');
+  const [parentTagsInput, setParentTagsInput] = useState(''); // 大タグ（例：豚、鶏）
+  const [childTagsInput, setChildTagsInput] = useState('');  // 小タグ（例：豚バラ、鶏もも）
 
+  const [multipleRecipes, setMultipleRecipes] = useState<{ title: string; ingredients: Ingredient[]; steps: Step[] }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // URLパラメータからurlを取得してスクレイピングAPIを呼び出す
+  // URLパラメータからurlを取得してスクレイピングAPIを呼び出す（初回のみ）
   useEffect(() => {
     const targetUrl = searchParams.get('url');
     if (!targetUrl) {
@@ -60,21 +63,44 @@ function ImportPageInner() {
       })
       .then(data => {
         setSourceData({ url: targetUrl, ...data });
-        setTitle(data.title || '');
         setImageUrl(data.imageUrl || '');
+        // 複数レシピ対応
+        if (data.recipes && data.recipes.length > 1) {
+          setMultipleRecipes(data.recipes);
+          setTitle(data.recipes[0].title || '');
+          setIngredients(data.recipes[0].ingredients && data.recipes[0].ingredients.length > 0 ? data.recipes[0].ingredients : [{ name: '', amount: '', group: '' }]);
+          setSteps(data.recipes[0].steps && data.recipes[0].steps.length > 0 ? data.recipes[0].steps : [{ description: '' }]);
+        } else {
+          setTitle(data.title || '');
+          // 材料・手順が取れていればセット
+          if (data.ingredients && data.ingredients.length > 0) {
+            setIngredients(data.ingredients);
+          }
+          if (data.steps && data.steps.length > 0) {
+            setSteps(data.steps);
+          }
+        }
+        // 大タグ・小タグを自動セット
+        if (data.autoParentTags && data.autoParentTags.length > 0) {
+          setParentTagsInput(data.autoParentTags.join(', '));
+        }
+        if (data.autoChildTags && data.autoChildTags.length > 0) {
+          setChildTagsInput(data.autoChildTags.join(', '));
+        }
       })
       .catch(() => {
-        router.push('/');
+        setError('取り込みに失敗しました。ホームに戻ってやり直してください。');
       });
-  }, [router, searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 材料の行を追加する
   const addIngredient = () => {
-    setIngredients([...ingredients, { name: '', amount: '' }]);
+    setIngredients([...ingredients, { name: '', amount: '', group: '' }]);
   };
 
   // 材料を変更する
-  const updateIngredient = (index: number, field: 'name' | 'amount', value: string) => {
+  const updateIngredient = (index: number, field: 'name' | 'amount' | 'group', value: string) => {
     const newIngredients = [...ingredients];
     newIngredients[index][field] = value;
     setIngredients(newIngredients);
@@ -112,8 +138,11 @@ function ImportPageInner() {
     setSaving(true);
     setError('');
 
-    // タグをカンマ区切りで分割
-    const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
+    // 大タグ・小タグを合わせて保存
+    const tags = [
+      ...parentTagsInput.split(',').map(t => t.trim()).filter(t => t),
+      ...childTagsInput.split(',').map(t => t.trim()).filter(t => t),
+    ];
 
     // 空の材料・手順を除外
     const cleanIngredients = ingredients.filter(i => i.name.trim());
@@ -154,7 +183,20 @@ function ImportPageInner() {
   };
 
   if (!sourceData) {
-    return <div className="p-8 text-center">読み込み中...</div>;
+    return (
+      <div className="min-h-screen bg-amber-50 flex items-center justify-center">
+        {error ? (
+          <div className="text-center p-8">
+            <p className="text-red-500 mb-4">{error}</p>
+            <a href="/" className="text-amber-600 underline">← ホームに戻る</a>
+          </div>
+        ) : (
+          <div className="text-center p-8">
+            <p className="text-amber-600 text-lg animate-pulse">⏳ レシピを取り込んでいます...</p>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -188,6 +230,31 @@ function ImportPageInner() {
           )}
         </div>
 
+        {/* 複数レシピ選択UI */}
+        {multipleRecipes.length > 1 && (
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <p className="text-sm font-semibold text-blue-700 mb-3">
+              📋 {multipleRecipes.length}件のレシピが見つかりました。編集するレシピを選んでください。
+            </p>
+            <div className="space-y-2">
+              {multipleRecipes.map((recipe, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setTitle(recipe.title || '');
+                    setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [{ name: '', amount: '', group: '' }]);
+                    setSteps(recipe.steps.length > 0 ? recipe.steps : [{ description: '' }]);
+                  }}
+                  className="w-full text-left bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-400 transition-colors"
+                >
+                  <span className="font-medium text-gray-800">{recipe.title || `レシピ ${idx + 1}`}</span>
+                  <span className="text-xs text-gray-400 ml-2">材料{recipe.ingredients.length}件・手順{recipe.steps.length}件</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 編集フォーム */}
         <div className="bg-white rounded-xl shadow-sm p-5 border border-amber-100 space-y-5">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">自分のレシピとして編集</h2>
@@ -201,7 +268,7 @@ function ImportPageInner() {
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
               placeholder="例：ふわふわオムレツ（自分版）"
             />
           </div>
@@ -213,7 +280,7 @@ function ImportPageInner() {
               type="url"
               value={imageUrl}
               onChange={e => setImageUrl(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
               placeholder="https://..."
             />
             {imageUrl && (
@@ -229,17 +296,25 @@ function ImportPageInner() {
                 <div key={i} className="flex gap-2">
                   <input
                     type="text"
+                    value={ing.group || ''}
+                    onChange={e => updateIngredient(i, 'group', e.target.value)}
+                    placeholder="A"
+                    className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
+                    title="グループ（任意）"
+                  />
+                  <input
+                    type="text"
                     value={ing.name}
                     onChange={e => updateIngredient(i, 'name', e.target.value)}
                     placeholder="材料名（例：卵）"
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
                   />
                   <input
                     type="text"
                     value={ing.amount}
                     onChange={e => updateIngredient(i, 'amount', e.target.value)}
                     placeholder="分量（例：2個）"
-                    className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 bg-white text-gray-900"
                   />
                   <button
                     onClick={() => removeIngredient(i)}
@@ -269,7 +344,7 @@ function ImportPageInner() {
                     onChange={e => updateStep(i, e.target.value)}
                     placeholder={`手順${i + 1}`}
                     rows={2}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none bg-white text-gray-900"
                   />
                   <button
                     onClick={() => removeStep(i)}
@@ -294,20 +369,34 @@ function ImportPageInner() {
               value={memo}
               onChange={e => setMemo(e.target.value)}
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 resize-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 resize-none bg-white text-gray-900"
               placeholder="自由メモ（コツ、感想など）"
             />
           </div>
 
           {/* タグ */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">タグ</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              大タグ <span className="text-xs text-gray-400">（食材の大カテゴリ：豚、鶏、野菜など）</span>
+            </label>
             <input
               type="text"
-              value={tagsInput}
-              onChange={e => setTagsInput(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
-              placeholder="カンマ区切りで入力（例：和食, 簡単, 時短）"
+              value={parentTagsInput}
+              onChange={e => setParentTagsInput(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
+              placeholder="例：豚, 鶏"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              小タグ <span className="text-xs text-gray-400">（具体的な部位・食材：豚バラ、鶏もも、にんじんなど）</span>
+            </label>
+            <input
+              type="text"
+              value={childTagsInput}
+              onChange={e => setChildTagsInput(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
+              placeholder="例：豚バラ, にんじん"
             />
           </div>
 
@@ -318,7 +407,7 @@ function ImportPageInner() {
               type="text"
               value={changeNote}
               onChange={e => setChangeNote(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-500 bg-white text-gray-900"
               placeholder="元レシピからどこを変えたか（例：砂糖を控えめにした）"
             />
           </div>
